@@ -36,10 +36,20 @@
 <!-- Header -->
 <div class="gradient-header text-white no-print">
   <div class="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
-    <div>
-      <p class="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">Airportels Financial</p>
-      <h1 class="text-2xl font-bold">ระบบเบิกค่าเดินทาง</h1>
-      <p class="text-blue-200 text-sm mt-1">Travel Expense Reimbursement</p>
+    <div class="flex items-center gap-4">
+      <!-- Logo -->
+      <label class="cursor-pointer group relative" title="คลิกเพื่อเปลี่ยน logo">
+        <input type="file" id="logoInput" accept="image/*" onchange="uploadLogo()" class="hidden" />
+        <div id="logoWrap" class="w-16 h-16 rounded-xl overflow-hidden bg-white/10 border-2 border-white/20 group-hover:border-white/60 transition-all flex items-center justify-center">
+          <img id="logoImg" class="w-full h-full object-contain hidden" />
+          <span id="logoPlaceholder" class="text-white/40 group-hover:text-white/80 text-xs text-center leading-tight transition-colors">📷<br>logo</span>
+        </div>
+      </label>
+      <div>
+        <p class="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">Airportels Financial</p>
+        <h1 class="text-2xl font-bold">ระบบเบิกค่าเดินทาง</h1>
+        <p class="text-blue-200 text-sm mt-1">Travel Expense Reimbursement</p>
+      </div>
     </div>
     <div class="text-right">
       <div id="totalBadge" class="text-3xl font-bold">฿0</div>
@@ -235,13 +245,36 @@ const VEHICLE_TAGS   = { car: 'tag-car', taxi: 'tag-taxi', bts: 'tag-bts', plane
 let selectedVehicle = null;
 let receiptBase64 = null;
 let entries = JSON.parse(localStorage.getItem('travel_entries') || '[]');
+let logoBase64 = localStorage.getItem('company_logo') || null;
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('fDate').value = today;
+  if (logoBase64) applyLogo(logoBase64);
   renderEntries();
 });
+
+function uploadLogo() {
+  const file = document.getElementById('logoInput').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    logoBase64 = e.target.result;
+    localStorage.setItem('company_logo', logoBase64);
+    applyLogo(logoBase64);
+    showToast('✅ บันทึก logo แล้ว', 'ok');
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyLogo(src) {
+  const img = document.getElementById('logoImg');
+  const placeholder = document.getElementById('logoPlaceholder');
+  img.src = src;
+  img.classList.remove('hidden');
+  placeholder.classList.add('hidden');
+}
 
 function setReason(btn, val) {
   document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('bg-blue-100','text-blue-700'));
@@ -489,7 +522,9 @@ function exportPDF() {
 <style>
   * { font-family: 'Sarabun', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
   body { padding: 30px 40px; color: #1e293b; font-size: 14px; }
-  .header { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 3px solid #1e3a5f; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 3px solid #1e3a5f; }
+  .header-text { flex: 1; }
+  .header-logo { width: 72px; height: 72px; object-fit: contain; flex-shrink: 0; }
   .header h1 { font-size: 22px; font-weight: 700; color: #1e3a5f; margin-bottom: 4px; }
   .header p { color: #64748b; font-size: 13px; }
   .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: #475569; }
@@ -513,8 +548,11 @@ function exportPDF() {
 </head>
 <body>
 <div class="header">
-  <h1>ใบเบิกค่าเดินทาง</h1>
-  <p>Airportels Financial — ระบบเบิกค่าเดินทาง</p>
+  ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" />` : ''}
+  <div class="header-text">
+    <h1>ใบเบิกค่าเดินทาง</h1>
+    <p>Airportels Financial — ระบบเบิกค่าเดินทาง</p>
+  </div>
 </div>
 <div class="meta">
   <span>📅 วันที่พิมพ์: ${today}</span>
