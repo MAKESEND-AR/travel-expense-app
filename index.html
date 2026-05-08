@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบเบิกค่าเดินทาง — Airportels Financial</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+    * { font-family: 'Sarabun', sans-serif; }
+    .gradient-header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .vehicle-btn { transition: all 0.2s; border: 2px solid transparent; }
+    .vehicle-btn.active { border-color: #2563eb; background: #eff6ff; }
+    .vehicle-btn:hover:not(.active) { border-color: #93c5fd; background: #f0f9ff; }
+    input[type="file"] { display: none; }
+    .receipt-label { cursor: pointer; }
+    .receipt-preview { max-height: 120px; object-fit: contain; border-radius: 8px; }
+    .tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .tag-car { background: #dbeafe; color: #1d4ed8; }
+    .tag-taxi { background: #fef3c7; color: #92400e; }
+    .tag-bts { background: #d1fae5; color: #065f46; }
+    .tag-plane { background: #ede9fe; color: #5b21b6; }
+    .status-bar { background: linear-gradient(90deg, #2563eb, #7c3aed); height: 4px; border-radius: 2px; transition: width 0.5s; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; transform: translateY(80px); opacity: 0; transition: all 0.3s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .row-hover:hover { background: #f8fafc; }
+    .limit-warning { color: #dc2626; font-size: 11px; }
+    @media print { .no-print { display: none !important; } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Header -->
+<div class="gradient-header text-white no-print">
+  <div class="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
+    <div>
+      <p class="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">Airportels Financial</p>
+      <h1 class="text-2xl font-bold">ระบบเบิกค่าเดินทาง</h1>
+      <p class="text-blue-200 text-sm mt-1">Travel Expense Reimbursement</p>
+    </div>
+    <div class="text-right">
+      <div id="totalBadge" class="text-3xl font-bold">฿0</div>
+      <div class="text-blue-200 text-sm">ยอดเบิกรวม</div>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-3 gap-4 no-print">
+    <div class="card p-4 text-center">
+      <div id="countTrips" class="text-3xl font-bold text-blue-600">0</div>
+      <div class="text-gray-500 text-sm mt-1">รายการ</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div id="countCar" class="text-3xl font-bold text-blue-500">0 กม.</div>
+      <div class="text-gray-500 text-sm mt-1">รถส่วนตัว</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div id="countReceipt" class="text-3xl font-bold text-purple-500">0 ใบ</div>
+      <div class="text-gray-500 text-sm mt-1">ใบเสร็จแนบ</div>
+    </div>
+  </div>
+
+  <!-- Add Entry Form -->
+  <div class="card p-6 no-print">
+    <h2 class="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
+      <span class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold">+</span>
+      เพิ่มรายการเดินทาง
+    </h2>
+
+    <!-- Row 1: Date + Destination -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เดินทาง <span class="text-red-500">*</span></label>
+        <input type="date" id="fDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ปลายทาง <span class="text-red-500">*</span></label>
+        <input type="text" id="fDest" placeholder="เช่น อยุธยา, ลาดกระบัง" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </div>
+    </div>
+
+    <!-- Row 2: Reason -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">เหตุผล / วัตถุประสงค์ <span class="text-red-500">*</span></label>
+      <div class="flex gap-2 flex-wrap mb-2">
+        <button type="button" onclick="setReason(this,'ประชุมลูกค้า')" class="reason-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-700 transition-colors">ประชุมลูกค้า</button>
+        <button type="button" onclick="setReason(this,'Training')" class="reason-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-700 transition-colors">Training</button>
+        <button type="button" onclick="setReason(this,'Site Visit')" class="reason-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-700 transition-colors">Site Visit</button>
+        <button type="button" onclick="setReason(this,'สัมมนา')" class="reason-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-700 transition-colors">สัมมนา</button>
+        <button type="button" onclick="setReason(this,'อื่นๆ')" class="reason-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-700 transition-colors">อื่นๆ</button>
+      </div>
+      <input type="text" id="fReason" placeholder="หรือพิมพ์เหตุผลเอง..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+    </div>
+
+    <!-- Row 3: Vehicle Type -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทพาหนะ <span class="text-red-500">*</span></label>
+      <div class="grid grid-cols-4 gap-3">
+        <button type="button" onclick="selectVehicle('car')" id="btn-car" class="vehicle-btn rounded-xl p-3 text-center bg-gray-50">
+          <div class="text-2xl mb-1">🚗</div>
+          <div class="text-xs font-medium text-gray-700">รถส่วนตัว</div>
+          <div class="text-xs text-blue-600 mt-0.5">4 ฿/กม.</div>
+        </button>
+        <button type="button" onclick="selectVehicle('taxi')" id="btn-taxi" class="vehicle-btn rounded-xl p-3 text-center bg-gray-50">
+          <div class="text-2xl mb-1">🚕</div>
+          <div class="text-xs font-medium text-gray-700">แท็กซี่</div>
+          <div class="text-xs text-yellow-600 mt-0.5">max ฿500/วัน</div>
+        </button>
+        <button type="button" onclick="selectVehicle('bts')" id="btn-bts" class="vehicle-btn rounded-xl p-3 text-center bg-gray-50">
+          <div class="text-2xl mb-1">🚇</div>
+          <div class="text-xs font-medium text-gray-700">BTS/MRT</div>
+          <div class="text-xs text-green-600 mt-0.5">ตามใบเสร็จ</div>
+        </button>
+        <button type="button" onclick="selectVehicle('plane')" id="btn-plane" class="vehicle-btn rounded-xl p-3 text-center bg-gray-50">
+          <div class="text-2xl mb-1">✈️</div>
+          <div class="text-xs font-medium text-gray-700">เครื่องบิน</div>
+          <div class="text-xs text-purple-600 mt-0.5">ตามใบเสร็จ</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Row 4: Dynamic Input -->
+    <div id="carSection" class="hidden mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">ระยะทาง (กิโลเมตร) <span class="text-red-500">*</span></label>
+      <div class="flex gap-3 items-center">
+        <input type="number" id="fDistance" min="0" step="0.1" placeholder="เช่น 80" oninput="calcCarAmount()" class="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        <span class="text-gray-500 text-sm">กม. × 4 ฿ =</span>
+        <span id="carCalc" class="font-bold text-blue-700 text-lg">฿0</span>
+      </div>
+    </div>
+
+    <div id="receiptSection" class="hidden mb-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ยอดค่าใช้จ่าย (บาท) <span class="text-red-500">*</span></label>
+          <input type="number" id="fReceiptAmount" min="0" step="0.01" placeholder="0.00" oninput="checkTaxiLimit()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <div id="taxiLimitWarn" class="limit-warning mt-1 hidden">⚠️ เกินวงเงิน ฿500/วัน — จะเบิกได้เพียง ฿500</div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">แนบใบเสร็จ</label>
+          <label class="receipt-label flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg p-2 hover:border-blue-400 transition-colors">
+            <input type="file" id="fReceipt" accept="image/*" onchange="previewReceipt()" />
+            <span id="receiptName" class="text-sm text-gray-500">📎 คลิกเพื่อแนบรูป</span>
+          </label>
+          <img id="receiptPreview" class="receipt-preview mt-2 hidden" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Note -->
+    <div class="mb-5">
+      <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ (ถ้ามี)</label>
+      <input type="text" id="fNote" placeholder="เพิ่มเติม..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+    </div>
+
+    <button onclick="addEntry()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+      <span>+ เพิ่มรายการ</span>
+    </button>
+  </div>
+
+  <!-- Entries Table -->
+  <div class="card overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-800">รายการเดินทางทั้งหมด</h2>
+      <div class="flex gap-2 no-print">
+        <button onclick="exportPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors">
+          📄 Export PDF
+        </button>
+        <button onclick="clearAll()" class="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm transition-colors">
+          🗑️ ล้างทั้งหมด
+        </button>
+      </div>
+    </div>
+
+    <div id="emptyState" class="py-16 text-center text-gray-400">
+      <div class="text-5xl mb-3">🧾</div>
+      <div class="font-medium">ยังไม่มีรายการ</div>
+      <div class="text-sm mt-1">เพิ่มรายการเดินทางด้านบนได้เลย</div>
+    </div>
+
+    <div id="tableWrap" class="hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr class="text-left text-gray-600 text-xs uppercase tracking-wide">
+              <th class="px-4 py-3 font-semibold">วันที่</th>
+              <th class="px-4 py-3 font-semibold">ปลายทาง / เหตุผล</th>
+              <th class="px-4 py-3 font-semibold">พาหนะ</th>
+              <th class="px-4 py-3 font-semibold">รายละเอียด</th>
+              <th class="px-4 py-3 font-semibold text-right">ยอดเบิก</th>
+              <th class="px-4 py-3 no-print"></th>
+            </tr>
+          </thead>
+          <tbody id="entriesBody"></tbody>
+          <tfoot class="bg-blue-50 border-t-2 border-blue-200">
+            <tr>
+              <td colspan="4" class="px-4 py-3 font-bold text-gray-700">รวมทั้งหมด</td>
+              <td class="px-4 py-3 text-right font-bold text-blue-700 text-lg" id="footTotal">฿0</td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breakdown by Vehicle -->
+  <div id="breakdownCard" class="card p-6 hidden no-print">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">สรุปตามประเภทพาหนะ</h2>
+    <div class="grid grid-cols-2 gap-4" id="breakdownGrid"></div>
+  </div>
+
+  <div class="text-center text-gray-400 text-xs pb-6 no-print">
+    Airportels Financial — ระบบเบิกค่าเดินทาง v1.0 | ข้อมูลจัดเก็บในเครื่องของคุณ
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast card px-5 py-3 text-sm font-medium text-gray-800 flex items-center gap-2 shadow-lg"></div>
+
+<script>
+const RATE_CAR = 4; // baht per km
+const TAXI_DAILY_LIMIT = 500;
+
+const VEHICLE_LABELS = { car: 'รถส่วนตัว', taxi: 'แท็กซี่', bts: 'BTS/MRT', plane: 'เครื่องบิน' };
+const VEHICLE_ICONS  = { car: '🚗', taxi: '🚕', bts: '🚇', plane: '✈️' };
+const VEHICLE_TAGS   = { car: 'tag-car', taxi: 'tag-taxi', bts: 'tag-bts', plane: 'tag-plane' };
+
+let selectedVehicle = null;
+let receiptBase64 = null;
+let entries = JSON.parse(localStorage.getItem('travel_entries') || '[]');
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('fDate').value = today;
+  renderEntries();
+});
+
+function setReason(btn, val) {
+  document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('bg-blue-100','text-blue-700'));
+  btn.classList.add('bg-blue-100','text-blue-700');
+  document.getElementById('fReason').value = val;
+}
+
+function selectVehicle(type) {
+  selectedVehicle = type;
+  ['car','taxi','bts','plane'].forEach(v => document.getElementById('btn-'+v).classList.remove('active'));
+  document.getElementById('btn-'+type).classList.add('active');
+  document.getElementById('carSection').classList.add('hidden');
+  document.getElementById('receiptSection').classList.add('hidden');
+  document.getElementById('taxiLimitWarn').classList.add('hidden');
+  if (type === 'car') document.getElementById('carSection').classList.remove('hidden');
+  else document.getElementById('receiptSection').classList.remove('hidden');
+}
+
+function calcCarAmount() {
+  const km = parseFloat(document.getElementById('fDistance').value) || 0;
+  document.getElementById('carCalc').textContent = '฿' + (km * RATE_CAR).toFixed(2);
+}
+
+function checkTaxiLimit() {
+  if (selectedVehicle !== 'taxi') return;
+  const amt = parseFloat(document.getElementById('fReceiptAmount').value) || 0;
+  document.getElementById('taxiLimitWarn').classList.toggle('hidden', amt <= TAXI_DAILY_LIMIT);
+}
+
+function previewReceipt() {
+  const file = document.getElementById('fReceipt').files[0];
+  if (!file) return;
+  document.getElementById('receiptName').textContent = '✅ ' + file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    receiptBase64 = e.target.result;
+    const img = document.getElementById('receiptPreview');
+    img.src = receiptBase64;
+    img.classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function addEntry() {
+  const date     = document.getElementById('fDate').value;
+  const dest     = document.getElementById('fDest').value.trim();
+  const reason   = document.getElementById('fReason').value.trim();
+  const note     = document.getElementById('fNote').value.trim();
+
+  if (!date)            { showToast('⚠️ กรุณาระบุวันที่', 'warn'); return; }
+  if (!dest)            { showToast('⚠️ กรุณาระบุปลายทาง', 'warn'); return; }
+  if (!reason)          { showToast('⚠️ กรุณาระบุเหตุผล', 'warn'); return; }
+  if (!selectedVehicle) { showToast('⚠️ กรุณาเลือกประเภทพาหนะ', 'warn'); return; }
+
+  let amount = 0;
+  let detail = '';
+
+  if (selectedVehicle === 'car') {
+    const km = parseFloat(document.getElementById('fDistance').value);
+    if (!km || km <= 0) { showToast('⚠️ กรุณาระบุระยะทาง', 'warn'); return; }
+    amount = km * RATE_CAR;
+    detail = km + ' กม. × ฿' + RATE_CAR;
+  } else {
+    const raw = parseFloat(document.getElementById('fReceiptAmount').value);
+    if (!raw || raw <= 0) { showToast('⚠️ กรุณาระบุยอดค่าใช้จ่าย', 'warn'); return; }
+    amount = selectedVehicle === 'taxi' ? Math.min(raw, TAXI_DAILY_LIMIT) : raw;
+    detail = '฿' + raw.toFixed(2) + (selectedVehicle === 'taxi' && raw > TAXI_DAILY_LIMIT ? ' (จำกัด ฿500)' : '');
+  }
+
+  const entry = {
+    id: Date.now(),
+    date, dest, reason, note,
+    vehicle: selectedVehicle,
+    detail,
+    amount: parseFloat(amount.toFixed(2)),
+    receipt: receiptBase64 || null
+  };
+
+  entries.push(entry);
+  save();
+  resetForm();
+  renderEntries();
+  showToast('✅ เพิ่มรายการแล้ว — ฿' + amount.toFixed(2), 'ok');
+}
+
+function deleteEntry(id) {
+  if (!confirm('ลบรายการนี้?')) return;
+  entries = entries.filter(e => e.id !== id);
+  save();
+  renderEntries();
+  showToast('🗑️ ลบรายการแล้ว', 'info');
+}
+
+function clearAll() {
+  if (!confirm('ล้างรายการทั้งหมด?')) return;
+  entries = [];
+  save();
+  renderEntries();
+  showToast('🗑️ ล้างทั้งหมดแล้ว', 'info');
+}
+
+function save() {
+  localStorage.setItem('travel_entries', JSON.stringify(entries));
+}
+
+function resetForm() {
+  document.getElementById('fDest').value = '';
+  document.getElementById('fReason').value = '';
+  document.getElementById('fNote').value = '';
+  document.getElementById('fDistance').value = '';
+  document.getElementById('fReceiptAmount').value = '';
+  document.getElementById('fReceipt').value = '';
+  document.getElementById('receiptName').textContent = '📎 คลิกเพื่อแนบรูป';
+  document.getElementById('receiptPreview').classList.add('hidden');
+  document.getElementById('carCalc').textContent = '฿0';
+  document.getElementById('taxiLimitWarn').classList.add('hidden');
+  selectedVehicle = null;
+  receiptBase64 = null;
+  ['car','taxi','bts','plane'].forEach(v => document.getElementById('btn-'+v).classList.remove('active'));
+  document.getElementById('carSection').classList.add('hidden');
+  document.getElementById('receiptSection').classList.add('hidden');
+  document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('bg-blue-100','text-blue-700'));
+}
+
+function renderEntries() {
+  const tbody = document.getElementById('entriesBody');
+  const total = entries.reduce((s, e) => s + e.amount, 0);
+  const totalKm = entries.filter(e => e.vehicle === 'car').reduce((s, e) => s + parseFloat(e.detail), 0);
+  const receiptsCount = entries.filter(e => e.receipt).length;
+
+  // Stats
+  document.getElementById('totalBadge').textContent = '฿' + total.toLocaleString('th', {minimumFractionDigits: 2});
+  document.getElementById('countTrips').textContent = entries.length;
+  document.getElementById('countCar').textContent = totalKm.toFixed(0) + ' กม.';
+  document.getElementById('countReceipt').textContent = receiptsCount + ' ใบ';
+  document.getElementById('footTotal').textContent = '฿' + total.toLocaleString('th', {minimumFractionDigits: 2});
+
+  if (entries.length === 0) {
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.getElementById('tableWrap').classList.add('hidden');
+    document.getElementById('breakdownCard').classList.add('hidden');
+    return;
+  }
+
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('tableWrap').classList.remove('hidden');
+  document.getElementById('breakdownCard').classList.remove('hidden');
+
+  tbody.innerHTML = entries.map(e => `
+    <tr class="row-hover border-t border-gray-50">
+      <td class="px-4 py-3 text-gray-600 whitespace-nowrap">${formatDate(e.date)}</td>
+      <td class="px-4 py-3">
+        <div class="font-medium text-gray-800">${e.dest}</div>
+        <div class="text-gray-500 text-xs">${e.reason}${e.note ? ' • ' + e.note : ''}</div>
+      </td>
+      <td class="px-4 py-3">
+        <span class="tag ${VEHICLE_TAGS[e.vehicle]}">${VEHICLE_ICONS[e.vehicle]} ${VEHICLE_LABELS[e.vehicle]}</span>
+      </td>
+      <td class="px-4 py-3 text-gray-600 text-xs">
+        ${e.detail}
+        ${e.receipt ? '<br><span class="text-green-600">📎 มีใบเสร็จ</span>' : ''}
+      </td>
+      <td class="px-4 py-3 text-right font-bold text-gray-800">฿${e.amount.toFixed(2)}</td>
+      <td class="px-4 py-3 no-print">
+        <button onclick="deleteEntry(${e.id})" class="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+
+  // Breakdown
+  const breakdown = {};
+  entries.forEach(e => {
+    if (!breakdown[e.vehicle]) breakdown[e.vehicle] = { count: 0, total: 0 };
+    breakdown[e.vehicle].count++;
+    breakdown[e.vehicle].total += e.amount;
+  });
+
+  document.getElementById('breakdownGrid').innerHTML = Object.entries(breakdown).map(([v, d]) => `
+    <div class="bg-gray-50 rounded-xl p-4 flex items-center gap-3">
+      <span class="text-2xl">${VEHICLE_ICONS[v]}</span>
+      <div class="flex-1">
+        <div class="font-medium text-gray-700">${VEHICLE_LABELS[v]}</div>
+        <div class="text-xs text-gray-500">${d.count} รายการ</div>
+      </div>
+      <div class="font-bold text-blue-700">฿${d.total.toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+function formatDate(d) {
+  const [y, m, day] = d.split('-');
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${+day} ${months[+m-1]} ${+y + 543}`;
+}
+
+function showToast(msg, type='ok') {
+  const toast = document.getElementById('toast');
+  const colors = { ok: '#d1fae5', warn: '#fef3c7', info: '#e0e7ff' };
+  toast.style.background = colors[type] || 'white';
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+async function exportPDF() {
+  if (entries.length === 0) { showToast('⚠️ ไม่มีรายการ', 'warn'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // ใช้ font ที่รองรับภาษาไทย (fallback to transliteration)
+  doc.setFontSize(18);
+  doc.setTextColor(30, 58, 95);
+  doc.text('Travel Expense Reimbursement', 105, 20, { align: 'center' });
+
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text('Airportels Financial', 105, 28, { align: 'center' });
+
+  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  doc.text('Print Date: ' + today, 105, 34, { align: 'center' });
+
+  const total = entries.reduce((s, e) => s + e.amount, 0);
+
+  doc.autoTable({
+    startY: 42,
+    head: [['Date', 'Destination / Reason', 'Vehicle', 'Detail', 'Amount (THB)']],
+    body: entries.map(e => [
+      e.date,
+      e.dest + '\n' + e.reason,
+      VEHICLE_LABELS[e.vehicle],
+      e.detail,
+      '฿' + e.amount.toFixed(2)
+    ]),
+    foot: [['', '', '', 'TOTAL', '฿' + total.toFixed(2)]],
+    headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+    footStyles: { fillColor: [239, 246, 255], textColor: [29, 78, 216], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: { 4: { halign: 'right' } }
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(9);
+  doc.setTextColor(150);
+  doc.text('Signature: ________________________    Approved by: ________________________', 20, finalY);
+  doc.text('Generated by Airportels Financial — Travel Expense System', 105, finalY + 8, { align: 'center' });
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  doc.save('travel-expense-' + dateStr + '.pdf');
+  showToast('📄 Export PDF แล้ว!', 'ok');
+}
+</script>
+</body>
+</html>
