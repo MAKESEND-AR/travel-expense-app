@@ -40,7 +40,7 @@
       <!-- Logo -->
       <label class="cursor-pointer group relative" title="คลิกเพื่อเปลี่ยน logo">
         <input type="file" id="logoInput" accept="image/*" onchange="uploadLogo()" class="hidden" />
-        <div id="logoWrap" class="w-16 h-16 rounded-xl overflow-hidden bg-white/10 border-2 border-white/20 group-hover:border-white/60 transition-all flex items-center justify-center">
+        <div id="logoWrap" class="w-24 h-24 rounded-xl overflow-hidden bg-white/10 border-2 border-white/20 group-hover:border-white/60 transition-all flex items-center justify-center">
           <img id="logoImg" class="w-full h-full object-contain hidden" />
           <span id="logoPlaceholder" class="text-white/40 group-hover:text-white/80 text-xs text-center leading-tight transition-colors">📷<br>logo</span>
         </div>
@@ -525,7 +525,7 @@ function exportPDF() {
   body { padding: 30px 40px; color: #1e293b; font-size: 14px; }
   .header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 3px solid #1e3a5f; }
   .header-text { flex: 1; }
-  .header-logo { width: 72px; height: 72px; object-fit: contain; flex-shrink: 0; }
+  .header-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; }
   .header h1 { font-size: 22px; font-weight: 700; color: #1e3a5f; margin-bottom: 4px; }
   .header p { color: #64748b; font-size: 13px; }
   .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: #475569; }
