@@ -462,14 +462,17 @@ function exportPDF() {
 
   const rows = entries.map((e, i) => `
     <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${formatDate(e.date)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top">${formatDate(e.date)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top">
         <strong>${e.dest}</strong><br>
         <span style="color:#64748b;font-size:12px">${e.reason}${e.note ? ' • ' + e.note : ''}</span>
       </td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${VEHICLE_ICONS[e.vehicle]} ${VEHICLE_LABELS[e.vehicle]}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569">${e.detail}${e.receipt ? '<br><span style="color:#16a34a">📎 มีใบเสร็จ</span>' : ''}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">฿${e.amount.toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top">${VEHICLE_ICONS[e.vehicle]} ${VEHICLE_LABELS[e.vehicle]}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;vertical-align:top">
+        ${e.detail}
+        ${e.receipt ? `<br><img src="${e.receipt}" style="margin-top:6px;max-width:120px;max-height:120px;object-fit:contain;border-radius:6px;border:1px solid #e2e8f0;display:block">` : '<br><span style="color:#94a3b8;font-size:11px">ไม่มีใบเสร็จ</span>'}
+      </td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;vertical-align:top">฿${e.amount.toFixed(2)}</td>
     </tr>
   `).join('');
 
